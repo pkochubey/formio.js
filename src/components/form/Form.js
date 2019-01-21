@@ -46,6 +46,14 @@ export default class FormComponent extends BaseComponent {
     return { data: {} };
   }
 
+  destroy() {
+    const state = super.destroy() || {};
+    if (this.subForm) {
+      this.subForm.destroy();
+    }
+    return state;
+  }
+
   /**
    * Render a subform.
    *
@@ -53,15 +61,27 @@ export default class FormComponent extends BaseComponent {
    * @param options
    */
   renderSubForm(form, options) {
+    if (this.options.builder) {
+      this.element.appendChild(this.ce('div', {
+        class: 'text-muted text-center p-2'
+      }, this.text(form.title)));
+      return;
+    }
+
     // Iterate through every component and hide the submit button.
     eachComponent(form.components, (component) => {
-      if ((component.type === 'button') && (component.action === 'submit')) {
+      if (
+        (component.type === 'button') &&
+        ((component.action === 'submit') || !component.action)
+      ) {
         component.hidden = true;
       }
     });
 
     (new Form(this.element, form, options)).render().then((instance) => {
       this.subForm = instance;
+      this.subForm.parent = this;
+      this.subForm.parentVisible = this.visible;
       this.subForm.on('change', () => {
         this.dataValue = this.subForm.getValue();
         this.onChange();
@@ -80,7 +100,7 @@ export default class FormComponent extends BaseComponent {
   /* eslint-disable max-statements */
   loadSubForm() {
     // Only load the subform if the subform isn't loaded and the conditions apply.
-    if (this.subFormLoaded || !super.checkConditions(this.root ? this.root.data : this.data)) {
+    if (this.subFormLoaded) {
       return this.subFormReady;
     }
     this.subFormLoaded = true;
@@ -94,11 +114,20 @@ export default class FormComponent extends BaseComponent {
     if (this.options && this.options.readOnly) {
       srcOptions.readOnly = this.options.readOnly;
     }
+    if (this.options && this.options.breadcrumbSettings) {
+      srcOptions.breadcrumbSettings = this.options.breadcrumbSettings;
+    }
+    if (this.options && this.options.buttonSettings) {
+      srcOptions.buttonSettings = this.options.buttonSettings;
+    }
     if (this.options && this.options.icons) {
       srcOptions.icons = this.options.icons;
     }
     if (this.options && this.options.viewAsHtml) {
       srcOptions.viewAsHtml = this.options.viewAsHtml;
+    }
+    if (_.has(this.options, 'language')) {
+      srcOptions.language = this.options.language;
     }
 
     // Make sure that if reference is provided, the form must submit.
@@ -115,13 +144,17 @@ export default class FormComponent extends BaseComponent {
       !this.options.formio &&
       (this.component.form || this.component.path)
     ) {
-      this.formSrc = Formio.getBaseUrl();
       if (this.component.project) {
+        this.formSrc = Formio.getBaseUrl();
         // Check to see if it is a MongoID.
         if (isMongoId(this.component.project)) {
           this.formSrc += '/project';
         }
         this.formSrc += `/${this.component.project}`;
+        srcOptions.project = this.formSrc;
+      }
+      else {
+        this.formSrc = Formio.getProjectUrl();
         srcOptions.project = this.formSrc;
       }
       if (this.component.form) {
@@ -149,10 +182,11 @@ export default class FormComponent extends BaseComponent {
     if (this.component && this.component.components && this.component.components.length) {
       this.renderSubForm(this.component, srcOptions);
     }
-    else {
-      (new Formio(this.formSrc)).loadForm({ params: { live: 1 } })
+    else if (this.formSrc) {
+      const query = { params: { live: 1 } };
+      (new Formio(this.formSrc)).loadForm(query)
         .then((formObj) => this.renderSubForm(formObj, srcOptions))
-        .catch(err => this.subFormReadyReject(err));
+        .catch((err) => this.subFormReadyReject(err));
     }
     return this.subFormReady;
   }
@@ -167,11 +201,9 @@ export default class FormComponent extends BaseComponent {
   }
 
   checkConditions(data) {
-    if (this.subForm) {
-      return this.subForm.checkConditions(this.dataValue.data);
-    }
-
-    return super.checkConditions(data);
+    return (super.checkConditions(data) && this.subForm)
+      ? this.subForm.checkConditions(this.dataValue.data)
+      : false;
   }
 
   calculateValue(data, flags) {
@@ -286,5 +318,29 @@ export default class FormComponent extends BaseComponent {
       return [];
     }
     return this.subForm.getAllComponents();
+  }
+
+  updateSubFormVisibility() {
+    if (this.subForm) {
+      this.subForm.parentVisible = this.visible;
+    }
+  }
+
+  get visible() {
+    return super.visible;
+  }
+
+  set visible(value) {
+    super.visible = value;
+    this.updateSubFormVisibility();
+  }
+
+  get parentVisible() {
+    return super.parentVisible;
+  }
+
+  set parentVisible(value) {
+    super.parentVisible = value;
+    this.updateSubFormVisibility();
   }
 }

@@ -70,8 +70,11 @@ export default class Component {
    *
    * @param {string} event - The event you wish to register the handler for.
    * @param {function} cb - The callback handler to handle this event.
+   * @param {boolean} internal - If this event is an "internal" event and should get removed when destroyed.
+   *   This parameter is necessary because any external "on" bindings should be persistent even through internal
+   *   redraw events which will call the "destroy" methods.
    */
-  on(event, cb) {
+  on(event, cb, internal) {
     if (!this.events) {
       return;
     }
@@ -79,6 +82,7 @@ export default class Component {
 
     // Store the component id in the handler so that we can determine which events are for this component.
     cb.id = this.id;
+    cb.internal = internal;
 
     // Register for this event.
     return this.events.on(type, cb);
@@ -111,9 +115,9 @@ export default class Component {
    * @param {string} event - The event to emit.
    * @param {Object} data - The data to emit with the handler.
    */
-  emit(event, data) {
+  emit(event, ...data) {
     if (this.events) {
-      this.events.emit(`${this.options.namespace}.${event}`, data);
+      this.events.emit(`${this.options.namespace}.${event}`, ...data);
     }
   }
 
@@ -139,6 +143,8 @@ export default class Component {
     else if ('attachEvent' in obj) {
       obj.attachEvent(`on${type}`, func);
     }
+
+    return this;
   }
 
   /**
@@ -158,6 +164,8 @@ export default class Component {
     if (indexes.length) {
       _.pullAt(this.eventHandlers, indexes);
     }
+
+    return this;
   }
 
   /**
@@ -166,7 +174,7 @@ export default class Component {
   destroy() {
     _.each(this.events._events, (events, type) => {
       _.each(events, (listener) => {
-        if (listener && (this.id === listener.id)) {
+        if (listener && (this.id === listener.id) && listener.internal) {
           this.events.off(type, listener);
         }
       });
@@ -189,9 +197,8 @@ export default class Component {
    * @param container
    */
   appendTo(element, container) {
-    if (container) {
-      container.appendChild(element);
-    }
+    container?.appendChild(element);
+    return this;
   }
 
   /**
@@ -215,6 +222,8 @@ export default class Component {
         container.appendChild(element);
       }
     }
+
+    return this;
   }
 
   /**
@@ -232,6 +241,8 @@ export default class Component {
         console.warn(err);
       }
     }
+
+    return this;
   }
 
   /**
@@ -264,9 +275,7 @@ export default class Component {
    */
   appendChild(element, child) {
     if (Array.isArray(child)) {
-      child.forEach(oneChild => {
-        this.appendChild(element, oneChild);
-      });
+      child.forEach((oneChild) => this.appendChild(element, oneChild));
     }
     else if (child instanceof HTMLElement || child instanceof Text) {
       element.appendChild(child);
@@ -274,6 +283,8 @@ export default class Component {
     else if (child) {
       element.appendChild(this.text(child.toString()));
     }
+
+    return this;
   }
 
   /**
@@ -296,17 +307,27 @@ export default class Component {
     if (input && inputMask) {
       const mask = FormioUtils.getInputMask(inputMask);
       this._inputMask = mask;
-      input.mask = maskInput({
-        inputElement: input,
-        mask
-      });
+      try {
+        input.mask = maskInput({
+          inputElement: input,
+          mask
+        });
+      }
+      catch (e) {
+        // Don't pass error up, to prevent form rejection.
+        // Internal bug of vanilla-text-mask on iOS (`selectionEnd`);
+        console.warn(e);
+      }
       if (mask.numeric) {
         input.setAttribute('pattern', '\\d*');
       }
       if (placeholder) {
         input.setAttribute('placeholder', this.maskPlaceholder(mask));
       }
-      this.inputMasks.push(input.mask);
+      // prevent pushing undefined value to array in case of vanilla-text-mask error catched above
+      if (input.mask) {
+        this.inputMasks.push(input.mask);
+      }
     }
   }
 
@@ -381,12 +402,15 @@ export default class Component {
    */
   addClass(element, className) {
     if (!element) {
-      return;
+      return this;
     }
+
     const classes = element.getAttribute('class');
-    if (!classes || classes.indexOf(className) === -1) {
+    if (!classes?.includes(className)) {
       element.setAttribute('class', `${classes} ${className}`);
     }
+
+    return this;
   }
 
   /**
@@ -399,13 +423,15 @@ export default class Component {
    */
   removeClass(element, className) {
     if (!element) {
-      return;
+      return this;
     }
-    let cls = element.getAttribute('class');
-    if (cls) {
-      cls = cls.replace(new RegExp(` ${className}`, 'g'), '');
-      element.setAttribute('class', cls);
+
+    const classes = element.getAttribute('class');
+    if (classes) {
+      element.setAttribute('class', classes.replace(new RegExp(` ${className}`, 'g'), ''));
     }
+
+    return this;
   }
 
   /**

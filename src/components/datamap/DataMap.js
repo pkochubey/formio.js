@@ -119,7 +119,8 @@ export default class DataMapComponent extends NestedComponent {
     addButton.appendChild(this.ce('i', {
       class: this.iconClass('plus')
     }));
-    addButton.appendChild(this.text(this.component.addAnother || ' Add Another'));
+    addButton.appendChild(this.text(' '));
+    addButton.appendChild(this.text(this.component.addAnother || 'Add Another'));
     return addButton;
   }
 
@@ -197,7 +198,7 @@ export default class DataMapComponent extends NestedComponent {
     const schema = this.component.valueComponent;
     schema.hideLabel = true;
     const value = this.addComponent(schema, container, {}, null, null, state);
-    value.on('change', () => this.updateValue());
+    value.on('change', () => this.updateValue(), true);
     return { value, container };
   }
 

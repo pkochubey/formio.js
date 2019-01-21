@@ -22,9 +22,11 @@ export default class SelectComponent extends BaseComponent {
       searchEnabled: true,
       searchField: '',
       minSearch: 0,
+      readOnlyValue: false,
       authenticate: false,
       template: '<span>{{ item.label }}</span>',
-      selectFields: ''
+      selectFields: '',
+      customOptions: {}
     }, ...extend);
   }
 
@@ -47,9 +49,6 @@ export default class SelectComponent extends BaseComponent {
 
     // Keep track of the select options.
     this.selectOptions = [];
-
-    // See if this should use the template.
-    this.useTemplate = (this.component.dataSrc !== 'values') && this.component.template;
 
     // If this component has been activated.
     this.activated = false;
@@ -88,8 +87,13 @@ export default class SelectComponent extends BaseComponent {
       return '';
     }
 
+    // If they wish to show the value in read only mode, then just return the itemValue here.
+    if (this.options.readOnly && this.component.readOnlyValue) {
+      return this.itemValue(data);
+    }
+
     // Perform a fast interpretation if we should not use the template.
-    if (data && !this.useTemplate) {
+    if (data && !this.component.template) {
       const itemLabel = data.label || data;
       return (typeof itemLabel === 'string') ? this.t(itemLabel) : itemLabel;
     }
@@ -352,10 +356,14 @@ export default class SelectComponent extends BaseComponent {
     return headers;
   }
 
-  updateCustomItems() {
-    this.setItems(this.evaluate(this.component.data.custom, {
+  getCustomItems() {
+    return this.evaluate(this.component.data.custom, {
       values: []
-    }, 'values') || []);
+    }, 'values');
+  }
+
+  updateCustomItems() {
+    this.setItems(this.getCustomItems() || []);
   }
 
   /* eslint-disable max-statements */
@@ -428,7 +436,8 @@ export default class SelectComponent extends BaseComponent {
             body = null;
           }
         }
-        this.loadItems(url, searchInput, this.requestHeaders, { noToken: true }, method, body);
+        const query = this.component.authenticate ? {} : { noToken: true };
+        this.loadItems(url, searchInput, this.requestHeaders, query, method, body);
         break;
       }
     }
@@ -478,6 +487,7 @@ export default class SelectComponent extends BaseComponent {
 
     if (this.component.widget === 'html5') {
       this.triggerUpdate();
+      this.focusableElement = input;
       this.addEventListener(input, 'focus', () => this.update());
       this.addEventListener(input, 'keydown', (event) => {
         const { keyCode } = event;
@@ -491,8 +501,20 @@ export default class SelectComponent extends BaseComponent {
 
     const useSearch = this.component.hasOwnProperty('searchEnabled') ? this.component.searchEnabled : true;
     const placeholderValue = this.t(this.component.placeholder);
+    let customOptions = this.component.customOptions || {};
+    if (typeof customOptions == 'string') {
+      try {
+        customOptions = JSON.parse(customOptions);
+      }
+      catch (err) {
+        console.warn(err.message);
+        customOptions = {};
+      }
+    }
+
     const choicesOptions = {
-      removeItemButton: _.get(this.component, 'removeItemButton', true),
+      ...customOptions,
+      removeItemButton: this.component.disabled ? false : _.get(this.component, 'removeItemButton', true),
       itemSelectText: '',
       classNames: {
         containerOuter: 'choices form-group formio-choices',
@@ -501,6 +523,8 @@ export default class SelectComponent extends BaseComponent {
       addItemText: false,
       placeholder: !!this.component.placeholder,
       placeholderValue: placeholderValue,
+      noResultsText: this.t('No results found'),
+      noChoicesText: this.t('No choices to choose from'),
       searchPlaceholderValue: this.t('Type to search'),
       shouldSort: false,
       position: (this.component.dropdown || 'auto'),
@@ -516,6 +540,7 @@ export default class SelectComponent extends BaseComponent {
 
     const tabIndex = input.tabIndex;
     this.addPlaceholder(input);
+    input.setAttribute('dir', this.i18next.dir());
     this.choices = new Choices(input, choicesOptions);
 
     if (this.component.multiple) {
@@ -524,7 +549,9 @@ export default class SelectComponent extends BaseComponent {
     else {
       this.focusableElement = this.choices.containerInner;
       this.choices.containerOuter.setAttribute('tabIndex', '-1');
-      this.addEventListener(this.choices.containerOuter, 'focus', () => this.focusableElement.focus());
+      if (useSearch) {
+        this.addEventListener(this.choices.containerOuter, 'focus', () => this.focusableElement.focus());
+      }
     }
     this.addFocusBlurEvents(this.focusableElement);
     this.focusableElement.setAttribute('tabIndex', tabIndex);
@@ -630,7 +657,9 @@ export default class SelectComponent extends BaseComponent {
   }
 
   getView(data) {
-    return this.asString(data);
+    return (this.component.multiple && Array.isArray(data))
+      ? data.map(this.asString.bind(this)).join(', ')
+      : this.asString(data);
   }
 
   getValue() {
@@ -666,11 +695,16 @@ export default class SelectComponent extends BaseComponent {
     return value;
   }
 
+  redraw() {
+    super.redraw();
+    this.triggerUpdate();
+  }
+
   setValue(value, flags) {
     flags = this.getFlags.apply(this, arguments);
     const previousValue = this.dataValue;
     if (this.component.multiple && !Array.isArray(value)) {
-      value = [value];
+      value = value ? [value] : [];
     }
     const hasPreviousValue = Array.isArray(previousValue) ? previousValue.length : previousValue;
     const hasValue = Array.isArray(value) ? value.length : value;
@@ -745,7 +779,9 @@ export default class SelectComponent extends BaseComponent {
    * Deletes the value of the component.
    */
   deleteValue() {
-    this.setValue('');
+    this.setValue('', {
+      noUpdateEvent: true
+    });
     _.unset(this.data, this.key);
   }
 
@@ -766,15 +802,38 @@ export default class SelectComponent extends BaseComponent {
   asString(value) {
     value = value || this.getValue();
 
-    if (this.component.dataSrc === 'values') {
-      value = _.find(this.component.data.values, ['value', value]);
+    if (['values', 'custom'].includes(this.component.dataSrc)) {
+      const {
+        items,
+        valueProperty,
+      } = this.component.dataSrc === 'values'
+        ? {
+          items: this.component.data.values,
+          valueProperty: 'value',
+        }
+        : {
+          items: this.getCustomItems(),
+          valueProperty: this.component.valueProperty,
+        };
+
+      value = (this.component.multiple && Array.isArray(value))
+        ? _.filter(items, (item) => value.includes(item.value))
+        : valueProperty
+          ? _.find(items, [valueProperty, value])
+          : value;
     }
 
     if (_.isString(value)) {
       return value;
     }
 
-    return _.isObject(value)
+    if (Array.isArray(value)) {
+      const items = [];
+      value.forEach(item => items.push(this.itemTemplate(item)));
+      return items.length > 0 ? items.join('<br />') : '-';
+    }
+
+    return !_.isNil(value)
       ? this.itemTemplate(value)
       : '-';
   }

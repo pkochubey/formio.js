@@ -1,7 +1,8 @@
-/* global ace */
+/* global ace, Quill */
 import TextFieldComponent from '../textfield/TextField';
 import Formio from '../../Formio';
 import _ from 'lodash';
+import { uniqueName } from '../../utils/utils';
 
 export default class TextAreaComponent extends TextFieldComponent {
   static schema(...extend) {
@@ -74,6 +75,7 @@ export default class TextAreaComponent extends TextFieldComponent {
   }
 
   createInput(container) {
+    const _this = this;
     if (this.isPlain) {
       if (this.options.readOnly) {
         this.input = this.ce('div', {
@@ -123,6 +125,25 @@ export default class TextAreaComponent extends TextFieldComponent {
       return this.input;
     }
 
+    if (this.component.editor === 'ckeditor') {
+      this.editorReady = this.addCKE(this.input, null, (newValue) => this.updateValue(null, newValue)).then((editor) => {
+        this.editor = editor;
+        if (this.options.readOnly || this.component.disabled) {
+          this.editor.isReadOnly = true;
+        }
+
+        // Set the default rows.
+        let value = '';
+        const numRows = parseInt(this.component.rows, 10);
+        for (let i = 0; i < numRows; i++) {
+          value += '<p></p>';
+        }
+        editor.data.set(value);
+        return editor;
+      });
+      return this.input;
+    }
+
     // Normalize the configurations.
     if (this.component.wysiwyg && this.component.wysiwyg.toolbarGroups) {
       console.warn('The WYSIWYG settings are configured for CKEditor. For this renderer, you will need to use configurations for the Quill Editor. See https://quilljs.com/docs/configuration for more information.');
@@ -141,6 +162,9 @@ export default class TextAreaComponent extends TextFieldComponent {
         this.updateValue(null, this.getConvertedValue(this.quill.root.innerHTML));
       }
     ).then((quill) => {
+      if (this.component.isUploadEnabled) {
+        quill.getModule('toolbar').addHandler('image', imageHandler);
+      }
       quill.root.spellcheck = this.component.spellcheck;
       if (this.options.readOnly || this.component.disabled) {
         quill.disable();
@@ -150,6 +174,58 @@ export default class TextAreaComponent extends TextFieldComponent {
     }).catch(err => console.warn(err));
 
     return this.input;
+
+    function imageHandler() {
+      let fileInput = this.container.querySelector('input.ql-image[type=file]');
+
+      if (fileInput == null) {
+        fileInput = document.createElement('input');
+        fileInput.setAttribute('type', 'file');
+        fileInput.setAttribute('accept', 'image/*');
+        fileInput.classList.add('ql-image');
+        fileInput.addEventListener('change', () => {
+          const files = fileInput.files;
+          const range = this.quill.getSelection(true);
+
+          if (!files || !files.length) {
+            console.warn('No files selected');
+            return;
+          }
+
+          this.quill.enable(false);
+          const { uploadStorage, uploadUrl, uploadOptions, uploadDir } = _this.component;
+          _this.root.formio
+            .uploadFile(
+              uploadStorage,
+              files[0],
+              uniqueName(files[0].name),
+              uploadDir || '', //should pass empty string if undefined
+              null,
+              uploadUrl,
+              uploadOptions
+            )
+            .then(result => {
+              return _this.root.formio.downloadFile(result);
+            })
+            .then(result => {
+              this.quill.enable(true);
+              const Delta = Quill.import('delta');
+              this.quill.updateContents(new Delta()
+                  .retain(range.index)
+                  .delete(range.length)
+                  .insert({ image: result.url })
+                , Quill.sources.USER);
+              fileInput.value = '';
+            }).catch(error => {
+            console.warn('Quill image upload failed');
+            console.warn(error);
+            this.quill.enable(true);
+          });
+        });
+        this.container.appendChild(fileInput);
+      }
+      fileInput.click();
+    }
   }
 
   setConvertedValue(value) {
@@ -193,7 +269,9 @@ export default class TextAreaComponent extends TextFieldComponent {
     if (this.isPlain) {
       if (this.options.readOnly) {
         // For readOnly, just view the contents.
-        this.input.innerHTML = this.interpolate(value);
+        if (this.input) {
+          this.input.innerHTML = this.interpolate(value);
+        }
         this.dataValue = value;
         return;
       }
@@ -207,12 +285,18 @@ export default class TextAreaComponent extends TextFieldComponent {
 
     if (this.htmlView) {
       // For HTML view, just view the contents.
-      this.input.innerHTML = this.interpolate(value);
+      if (this.input) {
+        this.input.innerHTML = this.interpolate(value);
+      }
     }
     else if (this.editorReady) {
       this.editorReady.then((editor) => {
         if (this.component.editor === 'ace') {
           editor.setValue(this.setConvertedValue(value));
+        }
+        else if (this.component.editor === 'ckeditor') {
+          editor.data.set(this.setConvertedValue(value));
+          this.updateValue(flags);
         }
         else {
           editor.setContents(editor.clipboard.convert(this.setConvertedValue(value)));
@@ -247,7 +331,7 @@ export default class TextAreaComponent extends TextFieldComponent {
       return this.dataValue;
     }
 
-    return this.component.multiple ? [''] : '';
+    return this.component.multiple ? [] : '';
   }
 
   elementInfo() {

@@ -15,7 +15,8 @@ export default class ColumnsComponent extends NestedComponent {
       input: false,
       tableView: false,
       persistent: false,
-      autoAdjust: false
+      autoAdjust: false,
+      hideOnChildrenHidden: false
     }, ...extend);
   }
 
@@ -124,20 +125,21 @@ export default class ColumnsComponent extends NestedComponent {
   addComponents(element, data, options, state) {
     const container = this.getContainer();
     container.noDrop = true;
-    _.each(this.component.columns, (column) => {
+    _.each(this.component.columns, (column, index) => {
       column.type = 'column';
-      this.addComponent(column, container, this.data, null, null, state);
+      column.hideOnChildrenHidden = this.component.hideOnChildrenHidden;
+      const component = this.addComponent(column, container, this.data, null, null, state);
+      component.column = index;
     });
     this.rows = this.groupByRow();
   }
 
   checkConditions(data) {
     if (this.component.autoAdjust) {
-      const before = this.nbVisible;
       const result = super.checkConditions(data);
-      if (before !== this.nbVisible) {
-        this.justify();
-      }
+
+      this.justify();
+
       return result;
     }
     else {

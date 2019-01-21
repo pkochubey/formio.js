@@ -58,6 +58,10 @@ export default class ButtonComponent extends BaseComponent {
   }
 
   set disabled(disabled) {
+    // Do not allow a component to be disabled if it should be always...
+    if ((!disabled && this.shouldDisable) || (disabled && !this.shouldDisable)) {
+      return;
+    }
     super.disabled = disabled;
     this.setDisabled(this.buttonElement, disabled);
   }
@@ -140,7 +144,7 @@ export default class ButtonComponent extends BaseComponent {
       this.on('submitButton', () => {
         this.loading = true;
         this.disabled = true;
-      });
+      }, true);
       this.on('submitDone', () => {
         this.loading  = false;
         this.disabled = false;
@@ -150,7 +154,7 @@ export default class ButtonComponent extends BaseComponent {
         this.addClass(message, 'has-success');
         this.removeClass(message, 'has-error');
         this.append(message);
-      });
+      }, true);
       onChange = (value, isValid) => {
         this.removeClass(this.buttonElement, 'btn-success submit-success');
         this.removeClass(this.buttonElement, 'btn-danger submit-fail');
@@ -177,28 +181,27 @@ export default class ButtonComponent extends BaseComponent {
       this.on('requestButton', () => {
         this.loading = true;
         this.disabled = true;
-      });
+      }, true);
       this.on('requestDone', () => {
         this.loading = false;
         this.disabled = false;
-      });
+      }, true);
     }
 
     this.on('change', (value) => {
       this.loading = false;
-      const isValid = value.hasOwnProperty('isValid') ? value.isValid : this.root.isValid(value.data, true);
-      this.disabled = this.options.readOnly || (this.component.disableOnInvalid && !isValid);
+      this.disabled = this.options.readOnly || (this.component.disableOnInvalid && !value.isValid);
       if (onChange) {
-        onChange(value, isValid);
+        onChange(value, value.isValid);
       }
-    });
+    }, true);
 
     this.on('error', () => {
       this.loading = false;
       if (onError) {
         onError();
       }
-    });
+    }, true);
 
     this.addEventListener(this.buttonElement, 'click', (event) => {
       this.dataValue = true;
@@ -248,7 +251,7 @@ export default class ButtonComponent extends BaseComponent {
         case 'url':
           this.emit('requestButton');
           this.emit('requestUrl', {
-            url: this.component.url,
+            url: this.interpolate(this.component.url),
             headers: this.component.headers
           });
           break;

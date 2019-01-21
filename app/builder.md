@@ -56,7 +56,7 @@ lib: builder
       </div>
     </div>
     <div class="row">
-      <div class="col-md-4"><a href="https://github.com/formio/formio" target="_blank"><img class="img-responsive" src="https://form.io/assets/images/github-logo.png"></a></div>
+      <div class="col-md-4"><a href="https://github.com/formio/formio" target="_blank"><img class="img-responsive" src="{{ site.baseUrl }}/app/github-logo.png"></a></div>
       <div class="col-md-8">
         <p>Getting started is as easy as...</p>
         <pre style="background-color: white;">git clone https://github.com/formio/formio.git
@@ -68,6 +68,8 @@ node server</pre>
   </div>
 </div>
 <script type="text/javascript">
+var jsonElement = document.getElementById('json');
+var formElement = document.getElementById('formio');
 var subJSON = document.getElementById('subjson');
 var builder = new Formio.FormBuilder(document.getElementById("builder"), {
   display: 'form',
@@ -90,32 +92,15 @@ var onForm = function(form) {
 };
 
 var setDisplay = function(display) {
-  builder.setDisplay(display).then(function(instance) {
-     var jsonElement = document.getElementById('json');
-     var formElement = document.getElementById('formio');
-     instance.on('saveComponent', function(event) {
-       var schema = instance.schema;
-       jsonElement.innerHTML = '';
-       formElement.innerHTML = '';
-       jsonElement.appendChild(document.createTextNode(JSON.stringify(schema, null, 4)));
-       Formio.createForm(formElement, schema).then(onForm);
+  builder.setDisplay(display).then(function(instance) {     
+     instance.on('change', function(form) {
+       if (form.components) {
+          formElement.innerHTML = '';
+          jsonElement.innerHTML = '';
+          jsonElement.appendChild(document.createTextNode(JSON.stringify(form, null, 4)));
+          Formio.createForm(formElement, form).then(onForm);
+       }
      });
-   
-     instance.on('editComponent', function(event) {
-       console.log('editComponent', event);
-     });
-     
-     instance.on('updateComponent', function(event) {
-       jsonElement.innerHTML = '';
-       jsonElement.appendChild(document.createTextNode(JSON.stringify(instance.schema, null, 4)));
-     });
-     
-     instance.on('deleteComponent', function(event) {
-       jsonElement.innerHTML = '';
-       jsonElement.appendChild(document.createTextNode(JSON.stringify(instance.schema, null, 4)));
-     });
-     
-     Formio.createForm(formElement, instance.schema).then(onForm);
    });
 };
 

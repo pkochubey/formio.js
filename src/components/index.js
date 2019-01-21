@@ -8,6 +8,7 @@ import DataMapComponent from './datamap/DataMap';
 import DateTimeComponent from './datetime/DateTime';
 import DayComponent from './day/Day';
 import EditGridComponent from './editgrid/EditGrid';
+import EditTableComponent from './edittable/EditTable';
 import HTMLComponent from './html/HTML';
 import HiddenComponent from './hidden/Hidden';
 import FormComponent from './form/Form';
@@ -39,6 +40,8 @@ import WellComponent from './well/Well';
 import LocationComponent from './location/Location';
 import FileComponent from './file/File';
 import TabsComponent from './tabs/Tabs';
+import TreeComponent from './tree/Tree';
+import ModalEdit from './modaledit/ModalEdit';
 
 export default {
   nested: NestedComponent,
@@ -53,6 +56,7 @@ export default {
   htmlelement: HTMLComponent,
   hidden: HiddenComponent,
   editgrid: EditGridComponent,
+  edittable: EditTableComponent,
   form: FormComponent,
   textfield: TextFieldComponent,
   phoneNumber: PhoneNumberComponent,
@@ -81,5 +85,7 @@ export default {
   survey: SurveyComponent,
   well: WellComponent,
   location: LocationComponent,
-  file: FileComponent
+  file: FileComponent,
+  tree: TreeComponent,
+  modaledit: ModalEdit,
 };

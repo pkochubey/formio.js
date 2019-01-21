@@ -1,4 +1,7 @@
 import Promise from 'native-promise-only';
+
+import _ from 'lodash';
+
 import Formio from './Formio';
 import Webform from './Webform';
 
@@ -51,6 +54,7 @@ export default class PDF extends Webform {
         form.projectUrl = this.formio.projectUrl;
         form.url = this.formio.formUrl;
         form.base = this.formio.base;
+        this.postMessage({ name: 'token', data: this.formio.getToken() });
       }
       this.postMessage({ name: 'form', data: form });
     });
@@ -131,10 +135,10 @@ export default class PDF extends Webform {
     // Handle an iframe submission.
     this.on('iframe-submission', (submission) => {
       this.setSubmission(submission).then(() => this.submit());
-    });
+    }, true);
 
     // Trigger when this form is ready.
-    this.on('iframe-ready', () => this.iframeReadyResolve());
+    this.on('iframe-ready', () => this.iframeReadyResolve(), true);
 
     this.appendChild(this.element, [
       this.zoomIn,
@@ -142,7 +146,10 @@ export default class PDF extends Webform {
       this.iframe
     ]);
 
-    if (!this.options.readOnly) {
+    if (
+      !this.options.readOnly &&
+      _.find(this.form.components, (component) => component.type === 'button' && component.action === 'submit')
+    ) {
       this.submitButton = this.ce('button', {
         type: 'button',
         class: 'btn btn-primary'

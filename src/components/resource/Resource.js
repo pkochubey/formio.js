@@ -52,7 +52,8 @@ export default class ResourceComponent extends SelectComponent {
       class: this.iconClass('plus')
     });
     addButton.appendChild(addIcon);
-    addButton.appendChild(this.text(` ${this.component.addResourceLabel || 'Add Resource'}`));
+    addButton.appendChild(this.text(' '));
+    addButton.appendChild(this.text(this.component.addResourceLabel || 'Add Resource'));
 
     this.addEventListener(addButton, 'click', (event) => {
       event.preventDefault();
@@ -62,6 +63,7 @@ export default class ResourceComponent extends SelectComponent {
       const form = new Webform(formioForm);
       form.on('submit', (submission) => {
         this.setValue(submission);
+        form.destroy();
         dialog.close();
       });
       form.src = `${_.get(this.root, 'formio.projectUrl', Formio.getBaseUrl())}/form/${this.component.resource}`;

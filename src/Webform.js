@@ -1,8 +1,3 @@
-// DO NOT DELETE! THIS WILL BREAK PDF GENERATION.
-/* eslint-disable no-unused-vars */
-import * as polyfill from './formio.polyfill';
-/* eslint-enable no-unused-vars */
-
 import _ from 'lodash';
 import moment from 'moment';
 import EventEmitter from 'eventemitter2';
@@ -24,6 +19,8 @@ function getOptions(options) {
     submitOnEnter: false,
     icons: Formio.icons || '',
     i18next,
+    saveDraft: false,
+    saveDraftThrottle: 5000
   });
   if (!options.events) {
     options.events = new EventEmitter({
@@ -43,6 +40,8 @@ export default class Webform extends NestedComponent {
    *
    * @param {Object} element - The DOM element you wish to render this form within.
    * @param {Object} options - The options to create a new form instance.
+   * @param {boolean} options.saveDraft - Set this if you would like to enable the save draft feature.
+   * @param {boolean} options.saveDraftThrottle - The throttle for the save draft feature.
    * @param {boolean} options.readOnly - Set this form to readOnly
    * @param {boolean} options.noAlerts - Set to true to disable the alerts dialog.
    * @param {boolean} options.i18n - The translation file for this rendering. @see https://github.com/formio/formio.js/blob/master/i18n.js
@@ -108,6 +107,16 @@ export default class Webform extends NestedComponent {
     this._loading = false;
     this._submission = {};
     this._form = {};
+    this.draftEnabled = false;
+    this.savingDraft = true;
+    if (this.options.saveDraftThrottle) {
+      this.triggerSaveDraft = _.throttle(this.saveDraft.bind(this), this.options.saveDraftThrottle);
+    }
+    else {
+      this.triggerSaveDraft = this.saveDraft.bind(this);
+    }
+
+    this.customErrors = [];
 
     /**
      * Determines if this form should submit the API on submit.
@@ -158,6 +167,12 @@ export default class Webform extends NestedComponent {
      * @type {Promise}
      */
     this.onFormBuild = null;
+
+    /**
+     * Determines if this submission is explicitly set.
+     * @type {boolean}
+     */
+    this.submissionSet = false;
 
     /**
      * Promise that executes when the form is ready and rendered.
@@ -236,6 +251,20 @@ export default class Webform extends NestedComponent {
     this.localize().then(() => {
       this.language = this.options.language;
     });
+
+    // See if we need to restore the draft from a user.
+    if (this.options.saveDraft && Formio.events) {
+      Formio.events.on('formio.user', (user) => {
+        this.formReady.then(() => {
+          // Only restore a draft if the submission isn't explicitly set.
+          if (!this.submissionSet) {
+            this.restoreDraft(user._id);
+          }
+        });
+      });
+    }
+
+    this.component.clearOnHide = false;
   }
   /* eslint-enable max-statements */
 
@@ -254,6 +283,7 @@ export default class Webform extends NestedComponent {
             return reject(err);
           }
           this.redraw();
+          this.emit('languageChanged');
           resolve();
         });
       }
@@ -636,6 +666,7 @@ export default class Webform extends NestedComponent {
       this.options.components = form.settings.components;
     }
 
+    this.initialized = false;
     return this.createForm(form).then(() => {
       this.emit('formLoad', form);
       return form;
@@ -699,6 +730,7 @@ export default class Webform extends NestedComponent {
     return this.onSubmission = this.formReady.then(
       () => {
         // If nothing changed, still trigger an update.
+        this.submissionSet = true;
         if (!this.setValue(submission, flags)) {
           this.triggerChange({
             noValidate: true
@@ -710,6 +742,64 @@ export default class Webform extends NestedComponent {
     ).catch(
       (err) => this.submissionReadyReject(err)
     );
+  }
+
+  /**
+   * Saves a submission draft.
+   */
+  saveDraft() {
+    if (!this.draftEnabled) {
+      return;
+    }
+    if (!this.formio) {
+      console.warn('Cannot save draft because there is no formio instance.');
+      return;
+    }
+    if (!Formio.getUser()) {
+      console.warn('Cannot save draft unless a user is authenticated.');
+      return;
+    }
+    const draft = _.cloneDeep(this.submission);
+    draft.state = 'draft';
+    if (!this.savingDraft) {
+      this.savingDraft = true;
+      this.formio.saveSubmission(draft).then((sub) => {
+        this.savingDraft = false;
+        this.emit('saveDraft', sub);
+      });
+    }
+  }
+
+  /**
+   * Restores a draft submission based on the user who is authenticated.
+   *
+   * @param {userId} - The user id where we need to restore the draft from.
+   */
+  restoreDraft(userId) {
+    if (!this.formio) {
+      console.warn('Cannot restore draft because there is no formio instance.');
+      return;
+    }
+    this.savingDraft = true;
+    this.formio.loadSubmissions({
+      params: {
+        state: 'draft',
+        owner: userId
+      }
+    }).then(submissions => {
+      if (submissions.length > 0) {
+        const draft = _.cloneDeep(submissions[0]);
+        return this.setSubmission(draft).then(() => {
+          this.draftEnabled = true;
+          this.savingDraft = false;
+          this.emit('restoreDraft', draft);
+        });
+      }
+      // Enable drafts so that we can keep track of changes.
+      this.draftEnabled = true;
+      this.savingDraft = false;
+      this.emit('restoreDraft', null);
+    });
   }
 
   get schema() {
@@ -782,6 +872,9 @@ export default class Webform extends NestedComponent {
       this.formReadyResolve();
       this.onFormBuild = null;
       this.setValue(this.submission);
+      if (!this.changing) {
+        this.triggerChange();
+      }
       return form;
     }).catch((err) => {
       console.warn(err);
@@ -799,15 +892,10 @@ export default class Webform extends NestedComponent {
       this.showElement(false);
       clearTimeout(this.build(state));
       this.isBuilt = true;
-      this.on('resetForm', () => this.resetValue());
-      this.on('deleteSubmission', () => this.deleteSubmission());
-      this.on('refreshData', () => this.updateValue());
-      setTimeout(() => {
-        this.onChange({
-          noEmit: true
-        });
-        this.emit('render');
-      }, 1);
+      this.on('resetForm', () => this.resetValue(), true);
+      this.on('deleteSubmission', () => this.deleteSubmission(), true);
+      this.on('refreshData', () => this.updateValue(), true);
+      setTimeout(() => this.emit('render'), 1);
     });
   }
 
@@ -855,10 +943,10 @@ export default class Webform extends NestedComponent {
    * Build the form.
    */
   build(state) {
-    this.on('submitButton', (options) => this.submit(false, options));
-    this.on('checkValidity', (data) => this.checkValidity(data, true));
+    this.on('submitButton', (options) => this.submit(false, options), true);
+    this.on('checkValidity', (data) => this.checkValidity(null, true, data), true);
     this.addComponents(null, null, null, state);
-    this.on('requestUrl', (args) => (this.submitUrl(args.url,args.headers)));
+    this.on('requestUrl', (args) => (this.submitUrl(args.url,args.headers)), true);
     return setTimeout(() => {
       this.onChange({
         noEmit: true
@@ -883,10 +971,34 @@ export default class Webform extends NestedComponent {
         errors.push(error);
       }
     }
+
+    errors = errors.concat(this.customErrors);
+
     if (!errors.length) {
       this.setAlert(false);
       return;
     }
+
+    // Mark any components as invalid if in a custom message.
+    errors.forEach((err) => {
+      const { components = [] } = err;
+
+      if (err.component) {
+        components.push(err.component);
+      }
+
+      if (err.path) {
+        components.push(err.path);
+      }
+
+      components.forEach((path) => {
+        const component = this.getComponent(path, _.identity);
+        const components = _.compact(Array.isArray(component) ? component : [component]);
+
+        components.forEach((component) => component.setCustomValidity(err.message, true));
+      });
+    });
+
     const message = `
       <p>${this.t('error')}</p>
       <ul>
@@ -955,14 +1067,31 @@ export default class Webform extends NestedComponent {
    * @param flags
    */
   onChange(flags, changed) {
+    // For any change events, clear any custom errors for that component.
+    if (changed && changed.component) {
+      this.customErrors = this.customErrors.filter(err => err.component && err.component !== changed.component.key);
+    }
+
     super.onChange(flags, true);
     const value = _.clone(this._submission);
     value.changed = changed;
     value.isValid = this.checkData(value.data, flags);
     this.showElement(true);
     this.loading = false;
+
+    // See if we need to save the draft of the form.
+    if (flags && flags.modified && this.options.saveDraft) {
+      this.triggerSaveDraft();
+    }
+
     if (!flags || !flags.noEmit) {
       this.emit('change', value);
+    }
+
+    // The form is initialized after the first change event occurs.
+    if (!this.initialized) {
+      this.emit('initialized');
+      this.initialized = true;
     }
   }
 
@@ -1010,11 +1139,9 @@ export default class Webform extends NestedComponent {
         });
       }
 
-      const submission = this.submission || {};
-
       // Add in metadata about client submitting the form
-      submission.metadata = submission.metadata || {};
-      _.defaults(submission.metadata, {
+      this.submission.metadata = this.submission.metadata || {};
+      _.defaults(this.submission.metadata, {
         timezone: _.get(this, '_submission.metadata.timezone', currentTimezone()),
         offset: parseInt(_.get(this, '_submission.metadata.offset', moment().utcOffset()), 10),
         referrer: document.referrer,
@@ -1023,6 +1150,8 @@ export default class Webform extends NestedComponent {
         pathName: window.location.pathname,
         onLine: navigator.onLine,
       });
+
+      const submission = _.cloneDeep(this.submission || {});
 
       submission.state = options.state || 'submitted';
       const isDraft = (submission.state === 'draft');
@@ -1039,27 +1168,53 @@ export default class Webform extends NestedComponent {
           return reject();
         }
 
-        this.loading = true;
+        this.getAllComponents().forEach((comp) => {
+          const { persistent, key } = comp.component;
+          if (persistent === 'client-only') {
+            delete submission.data[key];
+          }
+        });
 
-        // Use the form action to submit the form if available.
-        let submitFormio = this.formio;
-        if (this._form && this._form.action) {
-          submitFormio = new Formio(this._form.action, this.formio ? this.formio.options : {});
-        }
+        this.hook('customValidation', submission, (err) => {
+          if (err) {
+            // If string is returned, cast to object.
+            if (typeof err === 'string') {
+              err = {
+                message: err
+              };
+            }
 
-        if (this.nosubmit || !submitFormio) {
-          return resolve({
-            submission: submission,
-            saved: false
-          });
-        }
+            // Ensure err is an array.
+            err = Array.isArray(err) ? err : [err];
 
-        // If this is an actionUrl, then make sure to save the action and not the submission.
-        const submitMethod = submitFormio.actionUrl ? 'saveAction' : 'saveSubmission';
-        submitFormio[submitMethod](submission).then(result => resolve({
-          submission: result,
-          saved: true
-        })).catch(reject);
+            // Set as custom errors.
+            this.customErrors = err;
+
+            return reject();
+          }
+
+          this.loading = true;
+
+          // Use the form action to submit the form if available.
+          let submitFormio = this.formio;
+          if (this._form && this._form.action) {
+            submitFormio = new Formio(this._form.action, this.formio ? this.formio.options : {});
+          }
+
+          if (this.nosubmit || !submitFormio) {
+            return resolve({
+              submission,
+              saved: false,
+            });
+          }
+
+          // If this is an actionUrl, then make sure to save the action and not the submission.
+          const submitMethod = submitFormio.actionUrl ? 'saveAction' : 'saveSubmission';
+          submitFormio[submitMethod](submission).then((result) => resolve({
+            submission: result,
+            saved: true,
+          })).catch(reject);
+        });
       });
     });
   }
@@ -1068,7 +1223,7 @@ export default class Webform extends NestedComponent {
     this.submitted = true;
     this.submitting = true;
     return this.submitForm(options)
-      .then((result) => this.onSubmit(result.submission, result.saved))
+      .then(({ submission, saved }) => this.onSubmit(submission, saved))
       .catch((err) => Promise.reject(this.onSubmissionError(err)));
   }
 
