@@ -4,6 +4,41 @@ All notable changes to this project will be documented in this file
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## 3.13.1
+### Added 
+ - FOR-1933: 'formEmbedded' event
+ - Currently logged in user to the evaluation context.
+
+### Fixed
+ - The event propagation to not call updateValue on the component that initiated the change.
+
+## 3.13.0
+### Fixed
+ - Issue where calling Formio.request by itself could return a non-Promise cached response.
+ - FOR-2020: Fixed issue with the nosubmit flag not getting passed to nested forms.
+ - FOR-2000: POST to URL button not passing headers, added interpolation to header value
+ - FOR-1806: ```initialized``` event firing before first ```change``` event when setting language
+ - FOR-1901: Fixed infinite loop performance issues with nested forms.
+
+### Added
+ - reCAPTCHA component
+ - Azure Blob Storage support
+ - FOR-1802: Added tests to ensure the change event is fired within PDF's
+
+## 3.12.3
+### Fixed
+ - FOR-1802: ```change```  event not firing when component position is changed in PDF Form in builder
+ - Issue with Wizard cancel.
+ - Issue where an error of dataValue.map is not a function would trigger in file components.
+ - Problem with Headers not being defined for non-brower implementations.
+
+### Added
+ - FOR-1736: Added test for Custom Component.
+ - Test to prove the language change occurs in nested forms.
+ 
+### Changed
+ - Upgraded i18next@13.1.5, eslint@5.12.1, sinon@7.2.3, moment@2.24.0, @babel/preset-env@7.3.1, webpack@4.29.0
+
 ## 3.12.2
 ### Fixed
  - An error from getting thrown when you add a nested from without a form configured.
@@ -1535,7 +1570,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## 2.19.0
 ### Fixed
  - Performance issues with large forms with conditionals.
- - Issue with select list not saving values accross pages.
+ - Issue with select list not saving values across pages.
  - Fixed issue with prepend not working if no firstChild is provided.
  - Loader from not showing up.
  - Issue with the form component not validating correctly.

@@ -5,7 +5,7 @@
 // also duck-punches the global Promise definition. For now, keep native-promise-only.
 import Promise from 'native-promise-only';
 import 'whatwg-fetch';
-import { EventEmitter2 as EventEmitter } from 'eventemitter2';
+import EventEmitter from './EventEmitter';
 import cookies from 'browser-cookies';
 import copy from 'shallow-copy';
 import * as providers from './providers';
@@ -698,7 +698,7 @@ export default class Formio {
 
     // Get the cached promise to save multiple loads.
     if (!opts.ignoreCache && method === 'GET' && Formio.cache.hasOwnProperty(cacheKey)) {
-      return _cloneDeep(Formio.cache[cacheKey]);
+      return Promise.resolve(_cloneDeep(Formio.cache[cacheKey]));
     }
 
     // Set up and fetch request
@@ -822,7 +822,7 @@ export default class Formio {
 
         // Cache the response.
         if (method === 'GET') {
-          Formio.cache[cacheKey] = _cloneDeep(result);
+          Formio.cache[cacheKey] = result;
         }
 
         let resultCopy = {};
@@ -1264,7 +1264,12 @@ export default class Formio {
 // Define all the static properties.
 Formio.libraries = {};
 Formio.Promise = Promise;
-Formio.Headers = Headers;
+if (typeof Headers !== 'undefined') {
+  Formio.Headers = Headers;
+}
+else {
+  Formio.Headers = {};
+}
 Formio.baseUrl = 'https://api.form.io';
 Formio.projectUrl = Formio.baseUrl;
 Formio.projectUrlSet = false;

@@ -1,8 +1,17 @@
 {
-  "coverage": "19.06%",
-  "expectCount": 1558,
-  "actualCount": 297,
+  "coverage": "18.65%",
+  "expectCount": 1587,
+  "actualCount": 296,
   "files": {
+    "src/EventEmitter.js": {
+      "expectCount": 3,
+      "actualCount": 0,
+      "undocumentLines": [
+        4,
+        5,
+        22
+      ]
+    },
     "src/Form.js": {
       "expectCount": 11,
       "actualCount": 1,
@@ -198,12 +207,12 @@
         164,
         169,
         173,
-        218
+        219
       ]
     },
     "src/Webform.js": {
-      "expectCount": 82,
-      "actualCount": 53,
+      "expectCount": 85,
+      "actualCount": 52,
       "undocumentLines": [
         17,
         106,
@@ -223,17 +232,21 @@
         438,
         462,
         669,
-        805,
-        812,
-        820,
-        843,
-        869,
-        894,
-        902,
-        1098,
-        1132,
-        1222,
-        1259
+        806,
+        813,
+        821,
+        844,
+        870,
+        895,
+        903,
+        1101,
+        1135,
+        1225,
+        1262,
+        1301,
+        1302,
+        1306,
+        1310
       ]
     },
     "src/WebformBuilder.js": {
@@ -255,32 +268,32 @@
         172,
         181,
         185,
-        193,
-        204,
-        210,
-        216,
-        264,
-        273,
-        275,
-        359,
-        370,
-        501,
-        545,
-        644,
-        660,
-        686,
-        701,
-        708,
-        756,
-        762,
-        770,
-        784,
-        789,
-        799,
-        908,
-        921,
-        925,
-        942
+        212,
+        223,
+        229,
+        235,
+        283,
+        292,
+        294,
+        378,
+        390,
+        524,
+        568,
+        667,
+        683,
+        709,
+        724,
+        731,
+        779,
+        785,
+        793,
+        807,
+        812,
+        822,
+        931,
+        944,
+        948,
+        965
       ]
     },
     "src/Wizard.js": {
@@ -326,7 +339,7 @@
         483,
         487,
         494,
-        498
+        503
       ]
     },
     "src/WizardBuilder.js": {
@@ -504,7 +517,7 @@
       ]
     },
     "src/components/button/Button.js": {
-      "expectCount": 23,
+      "expectCount": 24,
       "actualCount": 0,
       "undocumentLines": [
         5,
@@ -527,9 +540,10 @@
         111,
         117,
         129,
-        315,
-        390,
-        395
+        316,
+        391,
+        396,
+        400
       ]
     },
     "src/components/checkbox/Checkbox.form.js": {
@@ -1012,33 +1026,33 @@
         134,
         149,
         158,
-        179,
-        192,
-        223,
-        233,
-        249,
-        255,
-        268,
-        306,
-        338,
-        348,
-        422,
-        452,
-        504,
-        505,
-        525,
+        180,
+        193,
+        224,
+        234,
+        250,
+        257,
+        270,
+        308,
+        340,
+        350,
+        424,
+        454,
+        506,
+        507,
         527,
-        531,
-        561,
-        567,
-        603,
-        642,
-        669,
-        689,
-        693,
-        697,
-        780,
-        806
+        529,
+        533,
+        563,
+        569,
+        605,
+        644,
+        671,
+        691,
+        695,
+        699,
+        782,
+        808
       ]
     },
     "src/components/form/Form.form.js": {
@@ -1049,7 +1063,7 @@
       ]
     },
     "src/components/form/Form.js": {
-      "expectCount": 31,
+      "expectCount": 38,
       "actualCount": 4,
       "undocumentLines": [
         8,
@@ -1061,24 +1075,31 @@
         35,
         36,
         37,
-        41,
-        45,
-        49,
-        86,
-        106,
-        195,
-        203,
-        209,
-        217,
-        280,
-        290,
+        42,
+        46,
+        50,
+        51,
+        55,
+        59,
+        60,
+        67,
+        71,
+        77,
+        115,
+        135,
+        224,
+        232,
+        238,
+        246,
         309,
-        316,
-        323,
-        329,
-        333,
+        319,
         338,
-        342
+        345,
+        352,
+        358,
+        362,
+        367,
+        371
       ]
     },
     "src/components/hidden/Hidden.form.js": {
@@ -1216,28 +1237,28 @@
         299,
         330,
         342,
-        346,
-        389,
-        394,
-        402,
-        406,
-        448,
-        459,
-        466,
-        478,
-        494,
-        509,
-        513,
+        352,
+        399,
+        404,
+        412,
+        416,
+        458,
+        469,
+        476,
+        488,
+        504,
+        519,
         523,
-        528,
-        532,
-        536,
+        533,
+        538,
         542,
         546,
-        563,
+        552,
+        556,
         573,
-        580,
-        597
+        583,
+        590,
+        607
       ]
     },
     "src/components/number/Number.form.js": {
@@ -1376,6 +1397,32 @@
         176,
         189,
         196
+      ]
+    },
+    "src/components/recaptcha/ReCaptcha.form.js": {
+      "expectCount": 1,
+      "actualCount": 0,
+      "undocumentLines": [
+        4
+      ]
+    },
+    "src/components/recaptcha/ReCaptcha.js": {
+      "expectCount": 13,
+      "actualCount": 0,
+      "undocumentLines": [
+        6,
+        7,
+        15,
+        26,
+        35,
+        43,
+        47,
+        58,
+        82,
+        89,
+        93,
+        94,
+        97
       ]
     },
     "src/components/resource/Resource.form.js": {
@@ -1648,10 +1695,10 @@
         243,
         252,
         260,
-        275,
-        309,
-        321,
-        337
+        268,
+        302,
+        314,
+        330
       ]
     },
     "src/components/textfield/TextField.form.js": {
@@ -1818,9 +1865,16 @@
       "expectCount": 3,
       "actualCount": 0,
       "undocumentLines": [
-        1,
         2,
-        3
+        3,
+        4
+      ]
+    },
+    "src/providers/storage/azure.js": {
+      "expectCount": 1,
+      "actualCount": 0,
+      "undocumentLines": [
+        2
       ]
     },
     "src/providers/storage/base64.js": {
@@ -1838,15 +1892,20 @@
       ]
     },
     "src/providers/storage/s3.js": {
-      "expectCount": 3,
+      "expectCount": 1,
       "actualCount": 0,
       "undocumentLines": [
-        3,
-        6,
-        9
+        3
       ]
     },
     "src/providers/storage/url.js": {
+      "expectCount": 1,
+      "actualCount": 0,
+      "undocumentLines": [
+        3
+      ]
+    },
+    "src/providers/storage/xhr.js": {
       "expectCount": 1,
       "actualCount": 0,
       "undocumentLines": [
@@ -1869,7 +1928,7 @@
       ]
     },
     "src/utils/utils.js": {
-      "expectCount": 47,
+      "expectCount": 48,
       "actualCount": 31,
       "undocumentLines": [
         103,
@@ -1887,7 +1946,8 @@
         759,
         774,
         789,
-        968
+        968,
+        985
       ]
     },
     "src/widgets/CalendarWidget.js": {
