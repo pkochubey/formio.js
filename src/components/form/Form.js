@@ -36,9 +36,18 @@ export default class FormComponent extends BaseComponent {
       this.subFormReadyResolve = resolve;
       this.subFormReadyReject = reject;
     });
+    this.subFormLoaded = false;
     this.subscribe();
   }
 
+  show(...args) {
+    const state = super.show(...args);
+    if (state && !this.subFormLoaded) {
+      this.loadSubForm();
+    }
+
+    return state;
+  }
   get dataReady() {
     return this.subFormReady;
   }
@@ -249,9 +258,27 @@ export default class FormComponent extends BaseComponent {
   }
 
   checkConditions(data) {
-    return (super.checkConditions(data) && this.subForm)
-      ? this.subForm.checkConditions(this.dataValue.data)
-      : false;
+    const visible = super.checkConditions(data);
+    const subForm = this.subForm;
+
+    // Return if already hidden
+    if (!visible) {
+      return visible;
+    }
+
+    if (subForm && subForm.hasCondition()) {
+      return this.subForm.checkConditions(this.dataValue.data);
+    }
+
+    return visible;
+  }
+
+  isHidden() {
+    if (!this.visible) {
+      return true;
+    }
+
+    return !super.checkConditions(this.rootValue);
   }
 
   calculateValue(data, flags) {
@@ -337,9 +364,17 @@ export default class FormComponent extends BaseComponent {
 
   setValue(submission, flags) {
     const changed = super.setValue(submission, flags);
+    const hidden = this.isHidden();
+    let subForm;
 
-    (this.subForm ? Promise.resolve(this.subForm) : this.loadSubForm())
-      .then((form) => {
+    if (hidden) {
+      subForm = this.subFormReady;
+    }
+    else {
+      subForm = this.loadSubForm();
+    }
+
+    subForm.then((form) => {
         if (submission && submission._id && form.formio && !flags.noload && _.isEmpty(submission.data)) {
           const submissionUrl = `${form.formio.formsUrl}/${submission.form}/submission/${submission._id}`;
           form.setUrl(submissionUrl, this.options);
@@ -354,6 +389,13 @@ export default class FormComponent extends BaseComponent {
     return changed;
   }
 
+  deleteValue() {
+    super.setValue(null, {
+      noUpdateEvent: true,
+      noDefault: true
+    });
+    _.unset(this.data, this.key);
+  }
   getValue() {
     if (this.subForm) {
       return this.subForm.getValue();

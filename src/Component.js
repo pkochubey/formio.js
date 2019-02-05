@@ -27,7 +27,7 @@ export default class Component {
      * can also be provided from the component.id value passed into the constructor.
      * @type {string}
      */
-    this.id = id || FormioUtils.getRandomComponentId();
+    this.id = FormioUtils.getRandomComponentId();
 
     /**
      * An array of event handlers so that the destry command can deregister them.
