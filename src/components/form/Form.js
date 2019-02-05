@@ -39,6 +39,10 @@ export default class FormComponent extends BaseComponent {
     this.subscribe();
   }
 
+  get dataReady() {
+    return this.subFormReady;
+  }
+
   get defaultSchema() {
     return FormComponent.schema();
   }
@@ -66,6 +70,20 @@ export default class FormComponent extends BaseComponent {
 
   get nosubmit() {
     return this._nosubmit || false;
+  }
+
+  get currentForm() {
+    return this._currentForm;
+  }
+
+  set currentForm(instance) {
+    this._currentForm = instance;
+    if (!this.subForm) {
+      return;
+    }
+    this.subForm.getComponents().forEach(component => {
+      component.currentForm = this;
+    });
   }
 
   subscribe() {
@@ -109,6 +127,7 @@ export default class FormComponent extends BaseComponent {
     (new Form(this.element, form, options)).render().then((instance) => {
       this.subForm = instance;
       this.subForm.root = this.root;
+      this.subForm.currentForm = this;
       this.subForm.parent = this;
       this.subForm.parentVisible = this.visible;
       this.subForm.on('change', () => {
